@@ -36,9 +36,6 @@
     <ClInclude Include="glut.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="App.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CppPaint.cpp">
@@ -47,7 +44,7 @@
     <ClCompile Include="engine.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="App.cpp">
+    <ClCompile Include="glut.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
   </ItemGroup>

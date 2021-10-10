@@ -140,7 +140,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="api.h" />
-    <ClInclude Include="App.h" />
     <ClInclude Include="CppPaint.h" />
     <ClInclude Include="engine.h" />
     <ClInclude Include="framework.h" />
@@ -149,9 +148,9 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="App.cpp" />
     <ClCompile Include="CppPaint.cpp" />
     <ClCompile Include="engine.cpp" />
+    <ClCompile Include="glut.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="CppPaint.rc" />
