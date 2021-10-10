@@ -1,0 +1,8 @@
+#include <windows.h> // Заголовочный файл для использования функций Windows
+#ifndef __API__
+#define __API__
+//#pragma comment( lib, "glut32.lib" ) // Подключается библиотека glut32.lib
+#include "glut.h" // Заголовочный файл библиотеки glut32
+#endif
+// Файлы glut.h и glut32.lib размещаются в директории проекта, 
+// там же, где и файлы-исходники (.cpp) с заголовочными файлами (.h)
