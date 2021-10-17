@@ -132,7 +132,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         engine->SetWindowPixelFormat(hDC); // устанавливаем параметры контекста воспроизведения OpenGL
         hGLRC = wglCreateContext(hDC); // создаем контекст воспроизведения OpenGL
         wglMakeCurrent(hDC, hGLRC); // делаем его текущим
-        engine->Init();
+        engine->Init(hInst, hWnd);
     }
     break;
 

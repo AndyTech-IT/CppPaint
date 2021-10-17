@@ -56,8 +56,11 @@ Point GetNormalizedVector(Point p)
 #pragma endregion
 
 #pragma region Init
-GLvoid Engine::Init(GLvoid) 
+GLvoid Engine::Init(HINSTANCE hInst, HWND hWnd)
 {
+	this->hInst = hInst;
+	this->hWnd = hWnd;
+
 	// Устанавливается синий фон
 	glClearColor(1, 1, 1.0f, 1.0f); 
 
@@ -111,6 +114,58 @@ GLvoid Engine::Init(GLvoid)
 
 	// Регистрируем элементы интерфейса
 	init_ui();
+	init_canvas(Point(1000, 1000));
+}
+
+void Engine::init_canvas(Point size) {
+	if (size.X != CanvasSize.X && size.Y != CanvasSize.Y)
+	{
+		for (int i = 0; i < CanvasSize.Y; i++)
+		{
+			for (int j = 0; j < CanvasSize.X; j++)
+				delete &Canvas[i][j];
+			delete[] Canvas[i];
+		}
+		delete Canvas;
+	}
+	CanvasSize = size;
+	Canvas = new Color * [CanvasSize.Y];
+	for (int i = 0; i < CanvasSize.Y; i++)
+	{
+		Canvas[i] = new Color[CanvasSize.X];
+		for (int j = 0; j < CanvasSize.X; j++) {
+			Canvas[i][j] = Color(220);
+		}
+	}
+}
+
+void Engine::clear_canvas() {
+	
+	for (int i = 0; i < CanvasSize.Y; i++)
+	{
+		for (int j = 0; j < CanvasSize.X; j++)
+		{
+			Canvas[i][j] = Color(255);
+		}
+	}
+}
+
+void Engine::draw_canvas() {
+	glPointSize(PixelSize);
+	glBegin(GL_POINTS);
+	for (int i = 0; i < CanvasSize.Y; i++) {
+		for (int j = 0; j < CanvasSize.X; j++)
+		{
+			double x = CanvasPos.X + j * PixelSize + PixelSize / 2.0;
+			double y = CanvasPos.Y + i * PixelSize + PixelSize / 2.0;
+			Color color = Canvas[i][j];
+
+			glColor3ub(color.R, color.G, color.B);
+			glVertex3f(x, y, 0);
+		}
+	}
+	glEnd();
+	glPopMatrix();
 }
 
 int Engine::SetWindowPixelFormat(HDC hDC)
@@ -186,21 +241,34 @@ GLvoid Engine::Draw(GLvoid)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	draw_ui();
+	draw_canvas();
 
 	// Отрисовка на экране данных из буфера... вроде...
 	SwapBuffers(wglGetCurrentDC());
 }
 
+Point Engine::GetCanvasPoint(Point p) {
+	Point result = Point((p.X - CanvasPos.X) / PixelSize, (p.Y - CanvasPos.Y) / PixelSize);
+	return result;
+}
+
 GLvoid Engine::MouseDown(Point p, bool Shift)
 {
-	int index = try_get_button_index(p); 
-	if (index != -1)
-	{
-		Buttons[index].Status = ButtonStatus::MouseDown;
-		PressedButton = &Buttons[index];
+	Point cp = GetCanvasPoint(p);
+	// Если точка на холсте
+	if (cp.X >= 0 && cp.Y >= 0) {
+		draw_point(cp);
 	}
-	else
-		(*PressedButton).Status = ButtonStatus::Unselected;
+	else {
+		int index = try_get_button_index(p);
+		if (index != -1)
+		{
+			Buttons[index].Status = ButtonStatus::MouseDown;
+			PressedButton = &Buttons[index];
+		}
+		else
+			(*PressedButton).Status = ButtonStatus::Unselected;
+	}
 }
 
 GLvoid Engine::MouseUp(Point p, bool Shift)
@@ -209,7 +277,12 @@ GLvoid Engine::MouseUp(Point p, bool Shift)
 	(*PressedButton).Status = ButtonStatus::Unselected;
 	if (index != -1)
 	{
-		Buttons[index].Status = ButtonStatus::MouseHower;
+		Button *b = &Buttons[index];
+		(*b).Status = ButtonStatus::MouseHower;
+		if (b == PressedButton)
+		{
+			OnButtonClick(*b, index);
+		}
 	}
 }
 
@@ -240,31 +313,177 @@ GLvoid Engine::draw_rect(Point pos, Point size, Color c)
 
 GLvoid Engine::draw_point(Point p)
 {
-	double R = CurentBrush.Size/2;
-	int sigments_count = R * 8;
-	glBegin(GL_LINE_LOOP);
-	for (int i = 0; i < sigments_count; i++)
+	for (int i = p.Y - CurentBrush.Size / 2; i < p.Y + CurentBrush.Size / 2; i++)
 	{
-		float theta = 2 * 3.1415926f * i / sigments_count;
-		float X = R * cosf(theta);
-		float Y = R * sinf(theta);
-
-		glVertex2f(X + p.X, Y + p.Y);
+		for (int j = p.X - CurentBrush.Size / 2; j < p.X + CurentBrush.Size / 2; j++) {
+			if (i >= 0 && j >= 0)
+				Canvas[i][j] = CurentBrush.BColor;
+		}
 	}
-	glEnd();
 }
 
+#include <sstream>
+#include <string.h>
+using namespace std;
+
+// Преобразует текст из TCHAR[] в числовое значение
+int TCHARArrToInt(TCHAR arr[]) {
+
+	// Игра с типами
+	wstring buf(arr);
+	string str(buf.begin(), buf.end());
+	const char* mas = str.c_str();
+
+	// Подготовка
+	int result = 0;
+	int len = strlen(mas);
+
+	// Проход по каждой цифре числа
+	for (int i = 0; i < len; i++) {
+		// Конвертируем из ASCII в число
+		int n = (int)mas[len-i-1] - (int)'0';
+		// Домножаем на 10^i
+		for (int j = 0; j < i; j++)
+			n *= 10;
+		// ...
+		result += n;
+	}
+	return result;
+}
+//
+//  ФУНКЦИЯ: ChaingeColor(HWND, UINT, WPARAM, LPARAM)
+//
+//  ЦЕЛЬ: Обрабатывает сообщения в диалоговом окне IDD_CHANGE_COLOR.
+//
+INT_PTR CALLBACK ChaingeColor(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	UNREFERENCED_PARAMETER(lParam);
+	switch (message)
+	{
+		// Инициализация диалога
+	case WM_INITDIALOG:
+	{
+		wchar_t R[256];
+		wchar_t G[256];
+		wchar_t B[256];
+
+		// Получаем текущие аргументы цвета кисти и преобразуем в нужный тип
+		wsprintfW(R, L"%d", CurentBrush.BColor.R);
+		wsprintfW(G, L"%d", CurentBrush.BColor.G);
+		wsprintfW(B, L"%d", CurentBrush.BColor.B);
+
+		// Заполняем поля диалога полученными значениями
+		SetDlgItemText(hDlg, IDC_R, (LPCWSTR)R);
+		SetDlgItemText(hDlg, IDC_G, (LPCWSTR)G);
+		SetDlgItemText(hDlg, IDC_B, (LPCWSTR)B);
+	}
+	return (INT_PTR)TRUE;
+
+	// Обработка меню диалога
+	case WM_COMMAND:
+	{
+		switch (LOWORD(wParam))
+		{
+			// Нажатие на ОК
+		case IDOK:
+		{
+			TCHAR R[MAX_PATH];
+			TCHAR G[MAX_PATH];
+			TCHAR B[MAX_PATH];
+
+			// Получаем данные из диалога
+			GetDlgItemText(hDlg, IDC_R, R, MAX_PATH);
+			GetDlgItemText(hDlg, IDC_G, G, MAX_PATH);
+			GetDlgItemText(hDlg, IDC_B, B, MAX_PATH);
+
+			// Преобразуем в нужный тип
+			int r = TCHARArrToInt(R);
+			int g = TCHARArrToInt(G);
+			int b = TCHARArrToInt(B);
+
+			// Применяем полученные данные для изменения цвета кисти
+			CurentBrush.BColor = Color(r, g, b);
+		}
+		// Нажатие на Отмена
+		case IDCANCEL:
+			EndDialog(hDlg, LOWORD(wParam));
+			break;
+		default:
+			break;
+		}
+	}
+	return (INT_PTR)TRUE;
+
+	default:
+		return (INT_PTR)FALSE;
+	}
+}
+//
+//  ФУНКЦИЯ: ChaingeColor(HWND, UINT, WPARAM, LPARAM)
+//
+//  ЦЕЛЬ: Обрабатывает сообщения в диалоговом окне IDD_CHANGE_COLOR.
+//
+INT_PTR CALLBACK ChaingeSize(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	UNREFERENCED_PARAMETER(lParam);
+	switch (message)
+	{
+		// Инициализация диалога
+	case WM_INITDIALOG:
+	{
+		wchar_t size[256];
+
+		// Получаем текущий размер кисти и преобразуем в нужный тип
+		wsprintfW(size, L"%d", CurentBrush.Size);
+
+		// Заполняем поля диалога полученными значениями
+		SetDlgItemText(hDlg, IDC_SIZE, (LPCWSTR)size);
+	}
+	return (INT_PTR)TRUE;
+
+	// Обработка меню диалога
+	case WM_COMMAND:
+	{
+		switch (LOWORD(wParam))
+		{
+			// Нажатие на ОК
+		case IDOK:
+		{
+			TCHAR Size[MAX_PATH];
+
+			// Получаем данные из диалога
+			GetDlgItemText(hDlg, IDC_SIZE, Size, MAX_PATH);
+
+			// Преобразуем в нужный тип
+			int size = TCHARArrToInt(Size);
+
+			// Применяем полученные данные для изменения цвета кисти
+			CurentBrush.Size = size;
+		}
+		// Нажатие на Отмена
+		case IDCANCEL:
+			EndDialog(hDlg, LOWORD(wParam));
+			break;
+		default:
+			break;
+		}
+	}
+	return (INT_PTR)TRUE;
+
+	default:
+		return (INT_PTR)FALSE;
+	}
+}
+
+
 void Engine::init_ui() {
-	ButtonsCount = 5;
-	Buttons = new Button[ButtonsCount]{
-		Button("Hello", Point(10), Point(100), Color(250), Color(240), Color(230)),
-		Button("Hello", Point(110, 10), Point(100), Color(250), Color(240), Color(230)),
-		Button("Hello", Point(220, 10), Point(100), Color(250), Color(240), Color(230)),
-		Button("Hello", Point(330, 10), Point(100), Color(250), Color(240), Color(230)),
-		Button("Hello", Point(440, 10), Point(100), Color(250), Color(240), Color(230)),
+	ButtonsCount = 2;
+	Buttons = new Button[ButtonsCount]
+	{
+		Button("Color", Point(10, 10), Point(100), Color(250), Color(240), Color(230)),
+		Button("Size", Point(120, 10), Point(100), Color(250), Color(240), Color(230)),
 	};
 
-	// Костыль, иначе при нажатии мимо будет исключение
 	PressedButton = &Buttons[0];
 }
 
@@ -355,6 +574,24 @@ GLvoid Engine::fill_circle(Point pos, Point size, Color c)
 	return GLvoid();
 }
 
+void Engine::OnButtonClick(Button& sender, int sender_id)
+{
+	switch (sender_id)
+	{
+	case (int)UIButton::ChaingeColor: {
+		DialogBox(hInst, MAKEINTRESOURCE(IDD_CHANGE_COLOR), hWnd, ChaingeColor); 
+	}
+	case (int)UIButton::ChaingeSize:
+	{
+		DialogBox(hInst, MAKEINTRESOURCE(IDD_CHAINGE_SIZE), hWnd, ChaingeSize);
+	}
+	break;
+
+	default:
+		break;
+	}
+}
+
 void Engine::render_string(double X, double Y, const char* string, Color const& color)
 {
 	glColor3f(color.R, color.G, color.B);
@@ -365,3 +602,4 @@ void Engine::render_string(double X, double Y, const char* string, Color const& 
 	}
 	glPopMatrix();
 }
+
